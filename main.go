@@ -21,6 +21,7 @@ import (
 	"github.com/m-lab/prometheus-bigquery-exporter/internal/setup"
 	"github.com/m-lab/prometheus-bigquery-exporter/query"
 	"github.com/m-lab/prometheus-bigquery-exporter/sql"
+	"google.golang.org/api/option"
 
 	"cloud.google.com/go/bigquery"
 	"golang.org/x/net/context"
@@ -31,6 +32,7 @@ import (
 
 var (
 	gaugeSources = flagx.StringArray{}
+	keyFile      = flag.String("keyFile", "key.json", "Path to the key file.")
 	project      = flag.String("project", "", "GCP project name.")
 	refresh      = flag.Duration("refresh", 5*time.Minute, "Interval between updating metrics.")
 	keepAlive    = flag.Bool("keepAlive", false, "Keep the process alive even if query fails to execute.")
@@ -57,7 +59,7 @@ func init() {
 	flag.Var(&gaugeSources, "gauge-query", "Name of file containing a gauge query.")
 
 	// Port registered at https://github.com/prometheus/prometheus/wiki/Default-port-allocations
-	*prometheusx.ListenAddress = ":9348"
+	*prometheusx.ListenAddress = ":80"
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 }
 
@@ -104,7 +106,7 @@ func reloadRegisterUpdate(client *bigquery.Client, files []setup.File, vars map[
 				// the runtime environment to restart.
 				err = f.Register(c)
 				if !keepAlive {
-					rtx.Must(f.Register(c), "Failed to register collector: aborting")
+					rtx.Must(f.Register(c), fmt.Sprintf("Failed to register collector: aborting: %v", err))
 				}
 			} else {
 				err = f.Update()
@@ -140,8 +142,7 @@ func main() {
 	for i := range files {
 		files[i].Name = gaugeSources[i]
 	}
-
-	client, err := bigquery.NewClient(mainCtx, *project)
+	client, err := bigquery.NewClient(mainCtx, *project, option.WithCredentialsFile(*keyFile))
 	rtx.Must(err, "Failed to allocate a new bigquery.Client")
 	vars := map[string]string{
 		"UNIX_START_TIME":  fmt.Sprintf("%d", time.Now().UTC().Unix()),

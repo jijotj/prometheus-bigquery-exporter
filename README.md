@@ -133,7 +133,7 @@ Use the following steps:
 3. Run the image, with fowarded ports and access to gcloud credentials.
 
   ```sh
-  docker run -p 9348:9348 --rm \
+  docker run -p 80:9348 --rm \
     -v $HOME/.config/gcloud:/root/.config/gcloud \
     -v $PWD:/queries -it bqx-local \
       -project=$GCLOUD_PROJECT \
